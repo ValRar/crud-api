@@ -2,7 +2,7 @@ import { UUID } from "crypto";
 import { Id, User } from "./user";
 import crypto from "crypto"
 
-export default class UserStorage {
+export class UserStorage {
     private users: User[] = []
     
     /**
@@ -52,4 +52,21 @@ id:      */
         const index = this.users.findIndex( user => user.id === id )
         return index != -1 ? index: undefined
     }
+
+    constructor(users: User[]) {
+        this.users = users
+    }
+}
+
+const storage = new UserStorage([])
+storage.push({ age: 10, username: "valrar", hobbies: ["programming", "more programming"] })
+storage.push({ age: 20, username: "gigshow" })
+storage.push({ age: 30, username: "donat" })
+storage.push({ age: 40, username: "dan245gg" })
+storage.push({ age: 50, username: "brawler" })
+
+export default storage;
+
+export type ClusterMsg = {
+    storage: User[]
 }

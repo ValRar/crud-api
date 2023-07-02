@@ -22,7 +22,7 @@ export default class ServerAnswer {
         this.res.end(responseText)
     }
     Created(responseText: string) {
-        this.res.setHeader("content-type", "text/plain")
+        this.res.setHeader("content-type", "text/json")
         this.res.statusCode = 201
         this.res.end(responseText)
     }

@@ -1,8 +1,13 @@
 import "dotenv/config"
 import http from "http"
-import UserStorage from "./userStorage"
+import { ClusterMsg, UserStorage } from "./userStorage"
 import { User } from "./user"
 import ServerAnswer from "./serverAnswer"
+import cluster from "cluster";
+import { availableParallelism } from "os";
+import storage from "./userStorage"
+
+let processStorage = storage
 
 function getBody(req: http.IncomingMessage) {
     const promise: Promise<string> = new Promise<string>((resolve, reject) => {
@@ -15,26 +20,53 @@ function getBody(req: http.IncomingMessage) {
             resolve(Buffer.concat(body).toString())
         })
     })
-    return promise
+    return promise    
 }
 
 function isUser(user: User) {return user.username && user.age}
 function isUUID(uuid: string) {return /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/gi.test(uuid)}
 
-const storage = new UserStorage()
-storage.push({ age: 10, username: "valrar", hobbies: ["programming", "more programming"] })
-storage.push({ age: 20, username: "gigshow" })
-storage.push({ age: 30, username: "donat" })
-storage.push({ age: 40, username: "dan245gg" })
-storage.push({ age: 50, username: "brawler" })
+const isClusterized = process.argv.includes("--clusterize")
+const applicationPort = isClusterized && cluster.isWorker ? process.env.CLUSTER_PORT : process.env.PORT
 
-const httpServer = http.createServer(async (req, res) => {
+ if (isClusterized && cluster.isPrimary) {
+    const cpus = availableParallelism()
+    for (let i = 0; i < cpus; i++) {
+        const worker = cluster.fork({CLUSTER_PORT: process.env.PORT ? +process.env.PORT + i + 1 : 3000 + i + 1, STORAGE: processStorage})
+        worker.on("message", (msg: ClusterMsg | null) => {
+            if (msg && msg.storage) {
+                processStorage = new UserStorage(msg.storage)
+                for (const id in cluster.workers) {
+                    cluster.workers[id]?.send({storage: msg.storage} as ClusterMsg)
+                }
+            } else {
+                worker.send({ storage: processStorage.getAllUsers() } as ClusterMsg)
+            }
+            
+        })
+    }
+}
+if (cluster.isWorker) {
+    process.on("message", (msg: ClusterMsg) => {
+        processStorage = new UserStorage(msg.storage)
+    })
+}
+
+
+async function handleConnection(req: http.IncomingMessage, res: http.ServerResponse) {
+    if (cluster.isWorker) {
+        if (process.send) process.send("")
+        res.on("close", () => {
+            if (process.send)process.send({storage: processStorage.getAllUsers()} as ClusterMsg)
+        })
+    }
+    
     const answerManager = new ServerAnswer(res)
     if (!req.url) return
     if (/^\/api\/users(\/.)?/.test(req.url)) { // /api/users GET call handler
         const arg = req.url.split("/")[3]
         if (!arg && req.method === "GET") {
-            const users = storage.getAllUsers()
+            const users = processStorage.getAllUsers()
             answerManager.OK(JSON.stringify(users))
             return
         } 
@@ -43,7 +75,7 @@ const httpServer = http.createServer(async (req, res) => {
                 answerManager.BadRequest("Invalid UUID")
                 return
             }
-            const user = storage.getUser(arg)
+            const user = processStorage.getUser(arg)
             if (user) {
                 answerManager.OK(JSON.stringify(user))
             } else {
@@ -53,8 +85,8 @@ const httpServer = http.createServer(async (req, res) => {
         } else if (!arg && req.method === "POST") { // /api/users/ POST call handler
             const user = JSON.parse(await getBody(req))
             if (isUser(user)) {
-                storage.push(user as User)
-                answerManager.Created(JSON.stringify(storage.getAllUsers()))
+                processStorage.push(user as User)
+                answerManager.Created(JSON.stringify(processStorage.getAllUsers()))
                 return
             } else {
                 answerManager.BadRequest("Invalid user object provided")
@@ -64,8 +96,8 @@ const httpServer = http.createServer(async (req, res) => {
             const newUser = JSON.parse(await getBody(req))
             if (!isUUID(arg)) answerManager.BadRequest("Invalid UUID provided")
             if (isUser(newUser)) {
-                if (storage.editUser(arg, newUser as User)) {
-                    answerManager.OK(JSON.stringify(storage.getAllUsers()))
+                if (processStorage.editUser(arg, newUser as User)) {
+                    answerManager.OK(JSON.stringify(processStorage.getAllUsers()))
                 } else {
                     answerManager.NotFound("User with this id not found")
                 }
@@ -77,7 +109,7 @@ const httpServer = http.createServer(async (req, res) => {
             if (!isUUID(arg)) {
                 answerManager.BadRequest("Invailid UUID provided")
             } else {
-                if (storage.rmUser(arg)) {
+                if (processStorage.rmUser(arg)) {
                     answerManager.NoContent()
                 } else {
                     answerManager.NotFound("User with this UUID not found")
@@ -87,7 +119,8 @@ const httpServer = http.createServer(async (req, res) => {
         }
     }
     answerManager.NotImplemented()
-    
-}).listen(process.env.PORT, () => {
-    console.log(`server is live on adress: http://localhost:${process.env.PORT}/`)
+}
+
+const server = http.createServer(handleConnection).listen(applicationPort, () => {
+    console.log(`server is live on adress: http://localhost:${applicationPort}/`)
 })
