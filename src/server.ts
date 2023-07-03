@@ -7,20 +7,7 @@ import cluster from "cluster";
 import { availableParallelism } from "os";
 import BalanceLoad from "./loadBalancer";
 
-let processStorage =
-  cluster.isWorker && process.env.STORAGE
-    ? new UserStorage(JSON.parse(process.env.STORAGE))
-    : new UserStorage([]);
-
-processStorage.push({
-  age: 10,
-  username: "valrar",
-  hobbies: ["programming", "more programming"],
-});
-processStorage.push({ age: 20, username: "gigshow" });
-processStorage.push({ age: 30, username: "donat" });
-processStorage.push({ age: 40, username: "dan245gg" });
-processStorage.push({ age: 50, username: "brawler" });
+export let processStorage = cluster.isWorker && process.env.STORAGE ? new UserStorage(JSON.parse(process.env.STORAGE)) : new UserStorage([]);
 
 function getBody(req: http.IncomingMessage) {
   const promise: Promise<string> = new Promise<string>((resolve, reject) => {
@@ -82,7 +69,7 @@ if (cluster.isWorker) {
 async function handleConnection(
   req: http.IncomingMessage,
   res: http.ServerResponse
-) {
+) {  
   if (cluster.isWorker) {
     res.on("close", () => {
       if (process.send)
@@ -114,8 +101,11 @@ async function handleConnection(
       return;
     } else if (!arg && req.method === "POST") {
       // /api/users/ POST call handler
-      const user = JSON.parse(await getBody(req));
+      const user : User = JSON.parse(await getBody(req));
       if (isUser(user)) {
+        if (!user.id || !isUUID(user.id)) {
+          user.id = undefined
+        }
         processStorage.push(user as User);
         answerManager.Created(JSON.stringify(processStorage.getAllUsers()));
         return;
@@ -154,7 +144,7 @@ async function handleConnection(
   answerManager.NotImplemented();
 }
 
-const server = http
+export const server = http
   .createServer(cluster.isWorker || !isClusterized ? handleConnection : BalanceLoad)
   .listen(applicationPort, () => {
     console.log(

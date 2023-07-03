@@ -6,13 +6,19 @@
   "scripts": {
     "start:prod": "tsc && node ./dist/server.js",
     "start:dev": "ts-node-dev --respawn ./src/server.ts",
-    "start:multi": "ts-node-dev --respawn ./src/server.ts --clusterize"
+    "start:multi": "ts-node-dev --respawn ./src/server.ts --clusterize",
+    "test": "tsc && mocha './dist/tests/*'"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/chai": "^4.3.5",
+    "@types/mocha": "^10.0.1",
     "@types/node": "^20.3.3",
+    "chai": "^4.3.7",
+    "chai-http": "^4.4.0",
+    "mocha": "^10.2.0",
     "typescript": "^5.1.6"
   },
   "dependencies": {

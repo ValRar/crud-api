@@ -16,7 +16,7 @@ export default class UserStorage {
      * push
      */
     public push(user: User): void {
-        user.id = crypto.randomUUID()
+        if (!user.id) user.id = crypto.randomUUID()
         this.users.push(user)
     }
 
@@ -46,6 +46,10 @@ id:      */
         if (isUserExists)
             this.users = this.users.filter(user => user.id !== id)
         return isUserExists
+    }
+
+    public clearAll() {
+        this.users = []
     }
 
     private findUserIndex(id: Id) {
