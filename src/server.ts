@@ -7,7 +7,7 @@ import cluster from "cluster";
 import { availableParallelism } from "os";
 import BalanceLoad from "./loadBalancer";
 
-export let processStorage = cluster.isWorker && process.env.STORAGE ? new UserStorage(JSON.parse(process.env.STORAGE)) : new UserStorage([]);
+let processStorage = cluster.isWorker && process.env.STORAGE ? new UserStorage(JSON.parse(process.env.STORAGE)) : new UserStorage([]);
 
 function getBody(req: http.IncomingMessage) {
   const promise: Promise<string> = new Promise<string>((resolve, reject) => {
