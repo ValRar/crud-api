@@ -36,6 +36,11 @@ export default class ServerAnswer {
         this.res.statusCode = 404
         this.res.end("This api route is not implemented")
     }
+    Redirect(url: string) {
+        this.res.setHeader("location", url)
+        this.res.statusCode = 302
+        this.res.end()
+    }
 
     constructor(res: http.ServerResponse) {
         this.res = res
