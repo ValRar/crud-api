@@ -48,10 +48,6 @@ id:      */
         return isUserExists
     }
 
-    public clearAll() {
-        this.users = []
-    }
-
     private findUserIndex(id: Id) {
         const index = this.users.findIndex( user => user.id === id )
         return index != -1 ? index : undefined
