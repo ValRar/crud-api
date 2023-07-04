@@ -36,10 +36,11 @@ function isUUID(uuid: string) {
 }
 
 const isClusterized = process.argv.includes("--clusterize");
+const defaultPort = process.env.PORT ? process.env.PORT : 3000
 const applicationPort =
   isClusterized && cluster.isWorker
     ? process.env.CLUSTER_PORT
-    : process.env.PORT;
+    : defaultPort;
 // Cluster creation
 if (isClusterized && cluster.isPrimary) {
   const cpus = availableParallelism();
@@ -143,7 +144,6 @@ async function handleConnection(
   }
   answerManager.NotImplemented();
 }
-
 export const server = http
   .createServer(cluster.isWorker || !isClusterized ? handleConnection : BalanceLoad)
   .listen(applicationPort, () => {
